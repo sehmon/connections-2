@@ -53,7 +53,7 @@ function draw() {
 
       push();
       textAlign(RIGHT);
-      text(`(${x_pos},${y_pos})`, x_pos-8, y_pos);
+      text(`(${x_pos.toFixed(4)},${y_pos.toFixed(4)})`, x_pos-8, y_pos);
       pop();
 
       if(value.traceroute_path != undefined) {
@@ -69,10 +69,10 @@ function draw() {
     }
   }
 
-  ellipse(width/2, height/2, 80);
   push();
   textAlign(CENTER);
   stroke(255);
+  strokeWeight(20);
   textSize(16);
   fill(0);
   text(
