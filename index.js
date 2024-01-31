@@ -2,6 +2,7 @@ const express = require("express");
 const http = require('http');
 const path = require('path');
 const fetch = require('fetch');
+const { spawn } = require('child_process')
 
 const { Server } = require("socket.io");
 const app = express();
@@ -10,8 +11,9 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-let users = {}
-let serverInfo = {};
+let users = {} // current users connected to site
+let serverInfo = {}; // info on the server (name, ip, ...)
+let seenNodes = {}; // nodes seen by the server, used to create connections
 
 getHostIdentifier().then(hostIdentifier => {
   serverInfo['name'] = hostIdentifier;
@@ -26,22 +28,25 @@ app.get('/', (req, res) => {
 io.on('connection', async (socket) => {
   console.log('client connected');
   let socket_identifier = (Math.random() + 1).toString(36).substring(7)
+  let socket_ip = socket.conn.remoteAddress.split(":")[3] || "8.8.8.8";
 
   users[socket_identifier] = {
     x: Math.random() * 400,
     y: Math.random() * 400,
-    ip: socket.conn.remoteAddress.split(":")[3],
+    ip: socket_ip
   }
 
-  traceIPRoute("8.8.8.8").then((ret) => {
-    console.log(ret);
-  }).catch((err) => {
+  traceIPRoute(socket_ip).then(traceroute_path => {
+    users[socket_identifier]['traceroute_path'] = traceroute_path;
+  }).catch(err => {
     console.log(err);
   });
 
   socket.on('mouse-update', (mouse_position) => {
     users[socket_identifier].x = mouse_position.x
     users[socket_identifier].y = mouse_position.y
+    users[socket_identifier].screenY = mouse_position.screenY
+    users[socket_identifier].screenX = mouse_position.screenX
   });
 
   socket.on('disconnect', () => {
@@ -85,33 +90,12 @@ function getHostIdentifier() {
   });
 }
 
-function traceIPRoute(ip) {
+async function traceIPRoute(ip) {
   return new Promise((resolve, reject) => {
-    // Create the new GraphNode and prep for the traceroute
-    //
-    /*
-    let userNode = new GraphNode(user.screenName, user.ip, user.deviceType);
-    let path = [];
+    let traceroute_path = [];
     let hop = 0;
-    let prev = this.networkGraph.root;
-    let { name, ip } = this.networkGraph.root;
-    path.push({
-      name,
-      ip,
-      hop,
-    });
-    this.networkGraph.addNode(userNode);
-    this.networkGraph.addNodeUserPair(user.userID, ip);
-    prev.addChild(userNode);
-    */
-
-    let path = [];
 
     const child = spawn('traceroute', ['-q', '1', ip]);
-
-    child.stderr.on('data', (data) => {
-      reject(new Error(`stderr: ${data}`));
-    });
 
     // Following regex gets each servername/ip pair from the traceroute output
     const regex = /(\S+)\s+\((\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b)\)|(\*)/g;
@@ -120,8 +104,7 @@ function traceIPRoute(ip) {
     child.stdout.on('data', (chunk) => {
       for (const match of chunk.toString().matchAll(regex)) {
         hop += 1;
-        if (match[3]) { // If the third capture group (asterisk) is matched
-          // console.log(`Asterisk: ${match[3]}`);
+        if (match[3]) { // This catches the "******" case when a route's info can't be found
         } else {
           const serverName = match[1];
           const ipAddress = match[2];
@@ -130,19 +113,27 @@ function traceIPRoute(ip) {
             continue;
           }
 
-          path.push({
+          traceroute_path.push({
             name: serverName,
             ip: ipAddress,
             hop,
           });
+
+          // you can probably rewrite this to be cleaner
+          if (seenNodes[ipAddress] == undefined) {
+            seenNodes[ipAddress] = [ip];
+          } else {
+            seenNodes[ipAddress].push(ip);
+          }
         }
       }
     });
 
     child.on('close', (code) => {
       if (code == 0) {
-        // this.networkGraph.printUserNodeMap();
-        resolve(path)
+        console.log('closing traceroute');
+        console.log('seen nodes: ', seenNodes);
+        resolve(traceroute_path);
       } else {
         reject(new Error(`child process exited with code ${code}`));
       }
