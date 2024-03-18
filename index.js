@@ -52,6 +52,14 @@ io.on('connection', async (socket) => {
 
   socket.on('disconnect', () => {
     console.log('a user disconnected');
+    let leaving_user = users[socket_identifier];
+    if(leaving_user.traceroute_path !== undefined) {
+      for(let i=0; i<leaving_user.traceroute_path.length; i++){
+        console.log(leaving_user.traceroute_path[i])
+        seenNodes[leaving_user.traceroute_path[i].ip].splice(seenNodes[leaving_user.traceroute_path[i].ip].indexOf(leaving_user.ip), 1)
+      }
+    }
+    console.log(seenNodes)
     delete users[socket_identifier];
   });
 
@@ -72,8 +80,8 @@ server.listen(PORT, () => {
 
 function getHostIdentifier() {
   const { exec } = require('child_process');
-  // const command = 'hostname -I';
-  const command = 'hostname';
+  const command = 'hostname -I';
+  // const command = 'hostname';
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -125,6 +133,7 @@ async function traceIPRoute(ip) {
           if (seenNodes[ipAddress] == undefined) {
             seenNodes[ipAddress] = [ip];
           } else {
+            console.log(`Adding ${ip} to ${ipAddress}:${seenNodes[ipAddress]}`);
             seenNodes[ipAddress].push(ip);
           }
         }
