@@ -1,7 +1,6 @@
 const express = require("express");
 const http = require('http');
 const path = require('path');
-const fetch = require('fetch');
 const { spawn } = require('child_process')
 
 const { Server } = require("socket.io");
@@ -25,10 +24,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, './index.html'));
 });
 
+// Runs when a new client connects to the server
 io.on('connection', async (socket) => {
   console.log('client connected');
-  let socket_identifier = (Math.random() + 1).toString(36).substring(7)
-  let socket_ip = socket.conn.remoteAddress.split(":")[3] || "8.8.8.8";
+  let socket_identifier = (Math.random() + 1).toString(36).substring(7) // Random string to identify the user
+  let socket_ip = socket.conn.remoteAddress.split(":")[3] || "8.8.8.8"; // Default to 8.8.8.8 if no IP is found
 
   users[socket_identifier] = {
     x: Math.random() * 400,
@@ -38,6 +38,7 @@ io.on('connection', async (socket) => {
 
   traceIPRoute(socket_ip).then(traceroute_path => {
     users[socket_identifier]['traceroute_path'] = traceroute_path;
+    console.log("Users", users);
   }).catch(err => {
     console.log(err);
   });
@@ -60,6 +61,7 @@ setInterval(function() {
   io.emit('position-update', {
     users,
     serverInfo,
+    seenNodes,
   });
 }, 10);
 
@@ -97,7 +99,7 @@ async function traceIPRoute(ip) {
 
     const child = spawn('traceroute', ['-q', '1', ip]);
 
-    // Following regex gets each servername/ip pair from the traceroute output
+    // The following regex gets each servername/ip pair from the traceroute output
     const regex = /(\S+)\s+\((\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b)\)|(\*)/g;
 
     child.stdout.setEncoding('utf8');

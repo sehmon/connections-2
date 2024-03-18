@@ -1,5 +1,6 @@
 let users = {};
 let serverInfo = {};
+let seenNodes = {};
 
 socket = io();
 socket.on('connect', () => {
@@ -9,7 +10,7 @@ socket.on('connect', () => {
 socket.on('position-update', (update) => {
   users = update.users;
   serverInfo = update.serverInfo;
-  console.log(users);
+  seenNodes = update.seenNodes;
 });
 
 function sendMousePositionToServer() {
@@ -57,13 +58,26 @@ function draw() {
       pop();
 
       if(value.traceroute_path != undefined) {
+        // List out the traceroute path
+        let connectionFound = false;
         for(let i=0; i<value.traceroute_path.length; i++) {
           push();
           textSize(8);
           noStroke();
           fill(200);
-          text(`${value.traceroute_path[i].name} - (${value.traceroute_path[i].ip})`, x_pos, y_pos+((i+1)*14));
+          text(`[${value.traceroute_path[i].hop}] :: ${value.traceroute_path[i].name} - (${value.traceroute_path[i].ip})`, x_pos, y_pos+((i+1)*14));
           pop();
+
+          if(!connectionFound) {
+            let connected_users = seenNodes[value.traceroute_path[i].ip];
+            if(connected_users.length > 1) {
+              push();
+              fill(255, 0, 0);
+              ellipse(x_pos, y_pos+((i+1)*14), 10, 10);
+              pop();
+              connectionFound = true;
+            }
+          }
         }
       }
     }
