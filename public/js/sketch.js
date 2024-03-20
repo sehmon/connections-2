@@ -11,6 +11,7 @@ socket.on('position-update', (update) => {
   users = update.users;
   serverInfo = update.serverInfo;
   seenNodes = update.seenNodes;
+  console.log("Seen Nodes", seenNodes);
 });
 
 function sendMousePositionToServer() {
@@ -57,7 +58,14 @@ function draw() {
       text(`(${x_pos.toFixed(4)},${y_pos.toFixed(4)})`, x_pos-8, y_pos);
       pop();
 
-      if(value.traceroute_path != undefined) {
+      if (value.traceroute_path == undefined) {
+        push();
+        textSize(8);
+        noStroke();
+        fill(200);
+        text(`Tracing route to server...`, x_pos, y_pos+14);
+        pop();
+      } else {
         // List out the traceroute path
         let connectionFound = false;
         for(let i=0; i<value.traceroute_path.length; i++) {
